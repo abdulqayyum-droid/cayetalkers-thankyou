@@ -6,105 +6,69 @@
   <title>Thank You — CayeTalkers Job Application</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-
     body {
       font-family: Inter, sans-serif;
       background: rgba(210, 238, 243, 0.49);
       min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      display: flex; align-items: center; justify-content: center;
       padding: 40px 20px;
     }
-
     .card {
       background: rgba(252, 234, 234, 0.34);
-      border-radius: 16px;
-      padding: 48px 40px;
-      max-width: 600px;
-      width: 100%;
-      text-align: center;
-      box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+      border-radius: 16px; padding: 48px 40px;
+      max-width: 600px; width: 100%;
+      text-align: center; box-shadow: 0 4px 24px rgba(0,0,0,0.06);
     }
-
-    .card img {
-      width: 120px;
-      margin-bottom: 24px;
-    }
-
-    .card h1 {
-      font-size: 32px;
-      font-weight: 700;
-      color: #2c3344;
-      margin-bottom: 12px;
-    }
-
-    .card p {
-      font-size: 16px;
-      color: #464d5e;
-      line-height: 1.6;
-    }
-
-    /* Collecting indicator — shown briefly while specs are gathered */
-    .collecting {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      margin-top: 20px;
-      font-size: 13px;
-      color: #888;
-      opacity: 1;
-      transition: opacity 1s ease;
-    }
-    .collecting.done { opacity: 0; }
-    .dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: #1D9E75;
-      animation: pulse 1s infinite;
-    }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+    .card img { width: 120px; margin-bottom: 24px; }
+    .card h1 { font-size: 32px; font-weight: 700; color: #2c3344; margin-bottom: 12px; }
+    .card p { font-size: 16px; color: #464d5e; line-height: 1.6; }
+    .status { margin-top: 16px; font-size: 13px; color: #888; min-height: 24px; }
+    .status.ok  { color: #1D9E75; font-weight: 500; }
+    .status.err { color: #A32D2D; }
   </style>
 </head>
 <body>
-
 <div class="card">
   <img src="https://cdn.jotfor.ms/img/Thankyou-iconV2.png?v=0.1" alt="Thank You" />
   <h1>Thank You!</h1>
   <p id="msg">Your submission has been received.</p>
-  <div class="collecting" id="collecting">
-    <div class="dot"></div>
-    <span>Saving system information...</span>
-  </div>
+  <div class="status" id="status">Collecting system information...</div>
 </div>
 
 <script>
-/* ================================================================
-   CayeTalkers — Self-hosted Thank You Page + Spec Collector
-   Form ID : 260144669142052
-
-   ⚠️  Replace YOUR_API_KEY_HERE with your actual JotForm API key
-   ================================================================ */
 (function () {
 
-  var API_KEY = '50c19c2ef62ca5a5c8ef6505c29d5919'; // ← ONLY change this
+  // ════════════════════════════════════════════════════════════════
+  //  CONFIG — replace YOUR_API_KEY_HERE with your JotForm API key
+  // ════════════════════════════════════════════════════════════════
+  var API_KEY = '50c19c2ef62ca5a5c8ef6505c29d5919';
 
-  var FIELD_MAP = {
-    spec_os:              'q9_spec_os',
-    spec_browser:         'q10_spec_browser',
-    spec_cpu_cores:       'q11_typeA11',
-    spec_ram_gb:          'q12_typeA12',
-    spec_screen:          'q13_typeA13',
-    spec_gpu:             'q14_typeA14',
-    spec_timezone:        'q15_typeA15',
-    spec_connection_type: 'q16_typeA16',
-    spec_downlink_mbps:   'q17_typeA17',
-    spec_rtt_ms:          'q18_typeA18',
-    spec_public_ip:       'q19_typeA19',
-    spec_collected_at:    'q20_typeA20'
-  };
+  // QID numbers confirmed from your form JSON response
+  // "9"=spec_os, "10"=spec_browser, "11"=cpu, "12"=ram,
+  // "13"=screen, "14"=gpu, "15"=timezone, "16"=connection,
+  // "17"=downlink, "18"=rtt, "19"=public_ip, "20"=collected_at
+  var FIELDS = [
+    { key: 'spec_os',              qid: '9'  },
+    { key: 'spec_browser',         qid: '10' },
+    { key: 'spec_cpu_cores',       qid: '11' },
+    { key: 'spec_ram_gb',          qid: '12' },
+    { key: 'spec_screen',          qid: '13' },
+    { key: 'spec_gpu',             qid: '14' },
+    { key: 'spec_timezone',        qid: '15' },
+    { key: 'spec_connection_type', qid: '16' },
+    { key: 'spec_downlink_mbps',   qid: '17' },
+    { key: 'spec_rtt_ms',          qid: '18' },
+    { key: 'spec_public_ip',       qid: '19' },
+    { key: 'spec_collected_at',    qid: '20' }
+  ];
 
-  // ── OS detection ───────────────────────────────────────────────
+  function setStatus(msg, cls) {
+    var el = document.getElementById('status');
+    el.textContent = msg;
+    el.className = 'status' + (cls ? ' ' + cls : '');
+  }
+
+  // ── OS ─────────────────────────────────────────────────────────
   function getOS() {
     var nav = window.navigator;
     if (nav.userAgentData && nav.userAgentData.platform) return nav.userAgentData.platform;
@@ -112,179 +76,133 @@
     if (ua.indexOf('Windows NT 10') > -1)  return 'Windows 10/11';
     if (ua.indexOf('Windows NT 6.3') > -1) return 'Windows 8.1';
     if (ua.indexOf('Windows') > -1)        return 'Windows';
-    if (ua.indexOf('Mac OS X') > -1) {
-      var m = ua.match(/Mac OS X ([\d_]+)/);
-      return m ? 'macOS ' + m[1].replace(/_/g, '.') : 'macOS';
-    }
-    if (ua.indexOf('Android') > -1) return 'Android';
+    if (ua.indexOf('Mac OS X') > -1) { var m = ua.match(/Mac OS X ([\d_]+)/); return m ? 'macOS ' + m[1].replace(/_/g,'.') : 'macOS'; }
+    if (ua.indexOf('Android') > -1)        return 'Android';
     if (ua.indexOf('iPhone') > -1 || ua.indexOf('iPad') > -1) return 'iOS';
-    if (ua.indexOf('Linux') > -1)   return 'Linux';
+    if (ua.indexOf('Linux') > -1)          return 'Linux';
     return nav.platform || 'unknown';
   }
 
-  // ── GPU detection ──────────────────────────────────────────────
+  // ── GPU ────────────────────────────────────────────────────────
   function getGPU() {
     try {
       var c = document.createElement('canvas');
       var gl = c.getContext('webgl') || c.getContext('experimental-webgl');
-      if (gl) {
-        var dbg = gl.getExtension('WEBGL_debug_renderer_info');
-        if (dbg) return gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL);
-      }
-    } catch (e) {}
+      if (gl) { var d = gl.getExtension('WEBGL_debug_renderer_info'); if (d) return gl.getParameter(d.UNMASKED_RENDERER_WEBGL); }
+    } catch(e) {}
     return 'unknown';
   }
 
-  // ── System specs ───────────────────────────────────────────────
-  function getSystemSpecs() {
-    var nav = window.navigator;
-    var cpu  = nav.hardwareConcurrency || 'unknown';
-    var ram  = nav.deviceMemory        || 'unknown';
-    var os   = getOS();
-    var gpu  = getGPU();
-    var res  = window.screen.width + 'x' + window.screen.height;
-    var tz   = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    var time = new Date().toISOString();
-
-    console.groupCollapsed('%c[SpecCollector] 💻 System Specs', 'color:#1D9E75;font-weight:bold');
-    console.table({
-      'OS':           { value: os   },
-      'CPU Cores':    { value: cpu  },
-      'RAM (GB)':     { value: ram  },
-      'Screen':       { value: res  },
-      'GPU':          { value: gpu  },
-      'Timezone':     { value: tz   },
-      'Collected At': { value: time }
-    });
-    console.groupEnd();
-
+  // ── Collect all specs ──────────────────────────────────────────
+  function collectSpecs() {
+    var nav  = window.navigator;
+    var conn = nav.connection || nav.mozConnection || nav.webkitConnection || {};
     return {
-      spec_os:           os,
-      spec_browser:      nav.userAgent,
-      spec_cpu_cores:    String(cpu),
-      spec_ram_gb:       String(ram),
-      spec_screen:       res,
-      spec_gpu:          gpu,
-      spec_timezone:     tz,
-      spec_collected_at: time
+      spec_os:              getOS(),
+      spec_browser:         nav.userAgent,
+      spec_cpu_cores:       String(nav.hardwareConcurrency || 'unknown'),
+      spec_ram_gb:          String(nav.deviceMemory        || 'unknown'),
+      spec_screen:          screen.width + 'x' + screen.height,
+      spec_gpu:             getGPU(),
+      spec_timezone:        Intl.DateTimeFormat().resolvedOptions().timeZone,
+      spec_collected_at:    new Date().toISOString(),
+      spec_connection_type: conn.effectiveType || conn.type || 'unknown',
+      spec_downlink_mbps:   String(conn.downlink !== undefined ? conn.downlink : 'unknown'),
+      spec_rtt_ms:          String(conn.rtt      !== undefined ? conn.rtt      : 'unknown'),
+      spec_public_ip:       'fetching...'
     };
   }
 
-  // ── Network specs ──────────────────────────────────────────────
-  function getNetworkSpecs() {
-    var conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection || null;
-    var connType = 'unknown', dl = 'unknown', rtt = 'unknown';
-
-    if (conn) {
-      connType = conn.effectiveType || conn.type || 'unknown';
-      dl       = conn.downlink !== undefined ? String(conn.downlink) : 'unknown';
-      rtt      = conn.rtt      !== undefined ? String(conn.rtt)      : 'unknown';
-      console.groupCollapsed('%c[SpecCollector] 🌐 Network Specs', 'color:#378ADD;font-weight:bold');
-      console.table({
-        'Connection Type':  { value: connType },
-        'Download (Mbps)':  { value: dl       },
-        'RTT / Ping (ms)':  { value: rtt      }
-      });
-      console.groupEnd();
-    } else {
-      console.warn('[SpecCollector] ⚠️ Network Information API not supported in this browser.');
-    }
-
-    return {
-      spec_connection_type: connType,
-      spec_downlink_mbps:   dl,
-      spec_rtt_ms:          rtt
-    };
-  }
-
-  // ── Public IP ──────────────────────────────────────────────────
-  function getPublicIP(callback) {
-    console.log('%c[SpecCollector] 🌍 Fetching public IP...', 'color:#888');
-    fetch('https://api.ipify.org?format=json')
-      .then(function (r) { return r.json(); })
-      .then(function (d) {
-        console.log('%c[SpecCollector] ✅ Public IP: ' + d.ip, 'color:#1D9E75');
-        callback(d.ip);
-      })
-      .catch(function () {
-        console.warn('[SpecCollector] ⚠️ Could not fetch public IP.');
-        callback('unavailable');
-      });
-  }
-
-  // ── Push to JotForm ────────────────────────────────────────────
-  function pushToJotForm(sid, data) {
-    var body = new URLSearchParams();
-    var mapped = {};
-
-    for (var key in data) {
-      if (data.hasOwnProperty(key) && FIELD_MAP[key]) {
-        body.append('submission[' + FIELD_MAP[key] + ']', data[key]);
-        mapped[FIELD_MAP[key]] = data[key];
+  // ── POST to JotForm ────────────────────────────────────────────
+  // Confirmed correct format from JotForm support forums:
+  // POST https://api.jotform.com/submission/{sid}?apiKey={key}
+  // Body: submission[9]=value&submission[10]=value...
+  function saveToJotForm(sid, specs) {
+    // Build body string manually — most reliable cross-browser approach
+    var parts = [];
+    FIELDS.forEach(function(f) {
+      if (specs[f.key] !== undefined) {
+        parts.push('submission%5B' + f.qid + '%5D=' + encodeURIComponent(specs[f.key]));
       }
-    }
+    });
+    var bodyStr = parts.join('&');
 
-    console.groupCollapsed('%c[SpecCollector] 📤 Payload being sent to JotForm', 'color:#EF9F27;font-weight:bold');
-    console.table(mapped);
+    console.group('%c[SpecCollector] 📤 Posting to JotForm API', 'color:#EF9F27;font-weight:bold');
+    console.log('URL  :', 'https://api.jotform.com/submission/' + sid + '?apiKey=***');
+    console.log('Body :', decodeURIComponent(bodyStr).substring(0, 400));
     console.groupEnd();
 
     fetch('https://api.jotform.com/submission/' + sid + '?apiKey=' + API_KEY, {
       method: 'POST',
-      body: body
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: bodyStr
     })
-    .then(function (r) { return r.json(); })
-    .then(function (result) {
-      document.getElementById('collecting').classList.add('done');
-      if (result.responseCode === 200) {
-        console.log('%c[SpecCollector] ✅ SUCCESS — All specs saved!', 'color:#1D9E75;font-weight:bold;font-size:13px');
-      } else if (result.responseCode === 401) {
-        console.error('[SpecCollector] ❌ 401 — Invalid API key. Check YOUR_API_KEY_HERE.');
-      } else if (result.responseCode === 404) {
-        console.error('[SpecCollector] ❌ 404 — Submission not found. Check submission ID:', sid);
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      console.log('%c[SpecCollector] API Response:', 'color:#888', JSON.stringify(res));
+      if (res.responseCode === 200) {
+        console.log('%c[SpecCollector] ✅ SUCCESS — all specs saved!', 'color:#1D9E75;font-weight:bold;font-size:14px');
+        setStatus('✓ System information saved successfully.', 'ok');
       } else {
-        console.warn('[SpecCollector] ⚠️ Unexpected response:', result);
+        console.error('[SpecCollector] ❌ responseCode:', res.responseCode, '| message:', res.message);
+        console.error('[SpecCollector] Full response:', JSON.stringify(res));
+        setStatus('Note: Could not save system info (' + res.responseCode + ').', 'err');
       }
     })
-    .catch(function (err) {
-      console.error('[SpecCollector] ❌ Network error:', err);
-      document.getElementById('collecting').classList.add('done');
+    .catch(function(err) {
+      console.error('[SpecCollector] ❌ Fetch error:', err);
+      setStatus('', '');
     });
   }
 
   // ── Main ───────────────────────────────────────────────────────
   function run() {
     var params = new URLSearchParams(window.location.search);
-    var sid = params.get('sid') || params.get('submissionID');
+    var sid    = params.get('sid') || params.get('submissionID');
 
     console.group('%c[SpecCollector] ══════ Starting ══════', 'color:#1D9E75;font-weight:bold;font-size:14px');
+    console.log('URL :', window.location.href);
 
     if (!sid) {
-      console.error('[SpecCollector] ❌ No ?sid= in URL. Current URL:', window.location.href);
+      console.error('[SpecCollector] ❌ No ?sid= parameter in URL. Open this page via JotForm submission redirect, not directly.');
       console.groupEnd();
-      document.getElementById('collecting').classList.add('done');
+      setStatus('', '');
       return;
     }
-
     console.log('%c[SpecCollector] 📋 Submission ID: ' + sid, 'color:#1D9E75;font-weight:bold');
 
-    var sys = getSystemSpecs();
-    var net = getNetworkSpecs();
-    var all = {};
-    for (var k in sys) { if (sys.hasOwnProperty(k)) all[k] = sys[k]; }
-    for (var k in net) { if (net.hasOwnProperty(k)) all[k] = net[k]; }
+    var specs = collectSpecs();
 
-    getPublicIP(function (ip) {
-      all.spec_public_ip = ip;
-      pushToJotForm(sid, all);
-      console.groupEnd();
+    // Log collected specs in a clean table
+    console.groupCollapsed('%c[SpecCollector] 💻 Collected Specs', 'color:#1D9E75;font-weight:bold');
+    console.table({
+      'OS':           { value: specs.spec_os            },
+      'Browser':      { value: specs.spec_browser.substring(0,80) },
+      'CPU Cores':    { value: specs.spec_cpu_cores     },
+      'RAM GB':       { value: specs.spec_ram_gb        },
+      'Screen':       { value: specs.spec_screen        },
+      'GPU':          { value: specs.spec_gpu           },
+      'Timezone':     { value: specs.spec_timezone      },
+      'Connection':   { value: specs.spec_connection_type },
+      'Downlink Mbps':{ value: specs.spec_downlink_mbps },
+      'RTT ms':       { value: specs.spec_rtt_ms        },
+      'Collected At': { value: specs.spec_collected_at  }
     });
+    console.groupEnd();
 
-    // Also update the thank you message with the candidate's name if passed
-    var name = params.get('name') || params.get('q2_fullname0');
-    if (name) {
-      document.getElementById('msg').textContent =
-        decodeURIComponent(name) + ', your submission has been received.';
-    }
+    // Fetch public IP then send everything
+    fetch('https://api.ipify.org?format=json')
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        specs.spec_public_ip = d.ip;
+        console.log('%c[SpecCollector] 🌍 Public IP: ' + d.ip, 'color:#1D9E75');
+        saveToJotForm(sid, specs);
+      })
+      .catch(function() {
+        specs.spec_public_ip = 'unavailable';
+        console.warn('[SpecCollector] ⚠️ Could not fetch public IP');
+        saveToJotForm(sid, specs);
+      });
   }
 
   if (document.readyState === 'loading') {
@@ -295,6 +213,5 @@
 
 })();
 </script>
-
 </body>
 </html>
